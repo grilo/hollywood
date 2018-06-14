@@ -6,14 +6,10 @@ import threading
 import logging
 import uuid
 
-import signal
-import sys
-
-
 # Clean shutdown with ctrl-c
+import signal
 def signal_handler(signal, frame):
         Registry.halt()
-        sys.exit(0)
 signal.signal(signal.SIGINT, signal_handler)
 
 
@@ -62,21 +58,12 @@ class Actor(object):
         Registry.unregister(self.uuid)
 
     def _loop(self):
-
         while self.running:
-
             if self.inbox.empty():
                 time.sleep(0.0001)
                 continue
-
-            try:
-                args, kwargs = self.inbox.get(False)
-                self.receive(*args, **kwargs)
-                self.inbox.task_done()
-            except:
-                logging.critical("[%s] Something went wrong...", self.uuid, exc_info=True)
-                Registry.halt()
-
+            args, kwargs = self.inbox.get()
+            self.receive(*args, **kwargs)
         logging.debug("[%s] Shutting down.", self.uuid)
 
     def tell(self, *args, **kwargs):
@@ -93,13 +80,11 @@ class Actor(object):
 class ThreadedActor(Actor):
 
     def start(self):
-        thread = threading.Thread(target=self._loop)
-        thread.start()
+        threading.Thread(target=self._loop).start()
 
     def ask(self, *args, **kwargs):
         queue = Queue.Queue()
-        thread = threading.Thread(target=self.future, args=(queue, args), kwargs=kwargs)
-        thread.start()
+        threading.Thread(target=self.future, args=(queue, args), kwargs=kwargs).start()
         return queue
 
     def future(self, queue, args, **kwargs):
@@ -113,4 +98,3 @@ class ThreadedActor(Actor):
         logging.debug("Spawned: %s", self.__class__.__name__)
         queue.put(self.receive(*args, **kwargs))
         return queue
-
