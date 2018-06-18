@@ -4,40 +4,40 @@ import time
 import Queue
 import threading
 import logging
-import uuid
 
 # Clean shutdown with ctrl-c
+import sys
 import signal
 def signal_handler(signal, frame):
-        Registry.halt()
+        System.halt()
+        sys.exit(1)
 signal.signal(signal.SIGINT, signal_handler)
 
 
-class Registry(object):
+class System(object):
 
     actors = {}
     actor_lock = threading.RLock()
 
     @classmethod
     def register(cls, actor):
-        with cls.actor_lock:
-            cls.actors[actor.uuid] = actor
+        cls.actors[actor.address] = actor
 
     @classmethod
-    def unregister(cls, uuid):
+    def unregister(cls, address):
         with cls.actor_lock:
-            logging.debug("Halting: %s", uuid)
-            if uuid in cls.actors:
-                del cls.actors[uuid]
+            logging.debug("Halting: %s", address)
+            if address in cls.actors:
+                del cls.actors[address]
 
     @classmethod
     def halt(cls, block=True, timeout=None):
-        logging.debug("Halting all actors.")
         with cls.actor_lock:
-            for uuid in reversed(cls.actors.keys()):
-                cls.actors[uuid].stop()
-                Registry.unregister(uuid)
-            logging.debug("Halting completed.")
+            logging.warning("Halting all actors.")
+            for address in reversed(cls.actors.keys()):
+                cls.actors[address].stop()
+                System.unregister(address)
+            logging.info("Halting completed.")
 
 
 class Actor(object):
@@ -45,17 +45,17 @@ class Actor(object):
     def __init__(self):
         self.inbox = Queue.Queue()
         self.running = True
-        self.uuid = str(uuid.uuid4()) + "::" + self.__class__.__name__
-        Registry.register(self)
+        self.address = __name__ + "/" + self.__class__.__name__
+        System.register(self)
         self.start()
 
     def start(self):
         raise NotImplementedError("Do not instantiate Actor class directly, use the flavours.")
 
     def stop(self):
-        logging.debug("[%s] Received stop signal.", self.uuid)
+        logging.debug("[%s] Received stop signal.", self.address)
         self.running = False
-        Registry.unregister(self.uuid)
+        System.unregister(self.address)
 
     def _loop(self):
         while self.running:
@@ -64,14 +64,17 @@ class Actor(object):
                 continue
             args, kwargs = self.inbox.get()
             self.receive(*args, **kwargs)
-        logging.debug("[%s] Shutting down.", self.uuid)
+        self.stop()
+        logging.debug("[%s] Shutting down.", self.address)
 
     def tell(self, *args, **kwargs):
         self.inbox.put((args, kwargs))
         return self
 
     def ask(self, *args, **kwargs):
-        return self.receive(*args, **kwargs)
+        queue = Queue.Queue()
+        queue.put(self.receive(*args, **kwargs))
+        return queue
 
     def receive(self, *args, **kwargs):
         raise NotImplementedError("'receive' method must be overriden.")
@@ -95,6 +98,6 @@ class ThreadedActor(Actor):
             You can then do 'obj.get()' to obtain the result (blocks if
             not done, check the Queue.Queue for other non-blocking options).
         """
-        logging.debug("Spawned: %s", self.__class__.__name__)
+        logging.debug("Future: %s", __name__ + "::" + self.__class__.__name__)
         queue.put(self.receive(*args, **kwargs))
         return queue
