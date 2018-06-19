@@ -5,8 +5,8 @@ import logging
 import datetime
 import email
 
-import actor
-import socks
+import hollywood.actor
+import hollywood.socks
 
 
 class BadRequestError(Exception):
@@ -166,7 +166,11 @@ class Response(object):
         return '\n'.join(out)
 
 
-class RequestHandler(actor.ThreadedActor):
+class RequestHandler(hollywood.actor.Threaded):
+
+    address = [
+        __name__ + '/RequestHandler'
+    ]
 
     def receive(self, connection, address):
         data = connection.recv(8192) # Should be enough for everybody
@@ -180,7 +184,11 @@ class RequestHandler(actor.ThreadedActor):
             connection.close()
 
 
-class ResponseHandler(actor.ThreadedActor):
+class ResponseHandler(hollywood.actor.Threaded):
+
+    address = [
+        __name__ + '/ResponseHandler'
+    ]
 
     def receive(self, request):
         response = Response()
@@ -190,34 +198,44 @@ class ResponseHandler(actor.ThreadedActor):
         return response
 
 
-class Server(actor.ThreadedActor):
+class Server(hollywood.actor.Threaded):
     """Usage:
 
-    http.Server().tell()
+    import actor
+    import http # Need to import all direct dependencies
+    actor.System.new('http/Server')
+    actor.System.tell('http/Server', port=5000)
 
     while True:
-        logging.info("Actors alive: %s", len(actor.System.actors.keys()))
+        logging.info("Actors alive!")
         time.sleep(2)
 
-
-    The loop is actually not necessary, just so you do something in the main thread.
+    The loop isn't actually necessary, keeps the main thread busy.
     """
 
+    address = [
+        __name__ + '/Server'
+    ]
 
-    def receive(self, address='0.0.0.0', port=5000):
-        socket_server = socks.Server()
-        sock = socket_server.ask(address, port).get()
-        socket_server.stop()
-        socket_listener = socks.Listener()
-        request_handler = RequestHandler()
-        response_handler = ResponseHandler()
+    def receive(self,
+                address='0.0.0.0',
+                port=5000,
+                response_handler='hollywood/http/ResponseHandler'):
+
+        sock_server = hollywood.System.new('hollywood/socks/Server')
+        sock_listener = hollywood.System.new('hollywood/socks/Listener')
+        request_handler = hollywood.System.new('hollywood/http/RequestHandler')
+        response_handler = hollywood.System.new(response_handler)
+
+        sock = sock_server.ask(address, port).get(timeout=2)
+        sock_server.stop()
 
         while self.running:
-            conn, addr = socket_listener.ask(sock).get()
+            conn, addr = sock_listener.ask(sock).get()
             if not conn:
                 continue
 
-            request = request_handler.ask(conn, addr).get()
+            request = request_handler.ask(conn, addr).get(timeout=2)
             if request:
                 response_handler.tell(request)
         return "Done serving!"

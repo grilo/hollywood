@@ -4,10 +4,14 @@ import time
 import logging
 import socket
 
-import actor
+import hollywood.actor
 
 
-class Server(actor.ThreadedActor):
+class Server(hollywood.actor.Threaded):
+
+    address = [
+        __name__ + '/Server'
+    ]
 
     def receive(self, address, port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -19,7 +23,11 @@ class Server(actor.ThreadedActor):
         return sock
 
 
-class Listener(actor.ThreadedActor):
+class Listener(hollywood.actor.Threaded):
+
+    address = [
+        __name__ + '/Listener'
+    ]
 
     def receive(self, server_socket):
         try:
