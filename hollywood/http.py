@@ -168,10 +168,6 @@ class Response(object):
 
 class RequestHandler(hollywood.actor.Threaded):
 
-    address = [
-        __name__ + '/RequestHandler'
-    ]
-
     def receive(self, connection, address):
         data = connection.recv(8192) # Should be enough for everybody
 
@@ -185,10 +181,6 @@ class RequestHandler(hollywood.actor.Threaded):
 
 
 class ResponseHandler(hollywood.actor.Threaded):
-
-    address = [
-        __name__ + '/ResponseHandler'
-    ]
 
     def receive(self, request):
         response = Response()
@@ -212,10 +204,6 @@ class Server(hollywood.actor.Threaded):
 
     The loop isn't actually necessary, keeps the main thread busy.
     """
-
-    address = [
-        __name__ + '/Server'
-    ]
 
     def receive(self,
                 address='0.0.0.0',

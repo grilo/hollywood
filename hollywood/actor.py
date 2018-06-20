@@ -9,9 +9,6 @@ import uuid
 
 class Base(object):
 
-    address = [
-        __name__ + "/Actor"
-    ]
 
     def __init__(self):
         self.inbox = Queue.Queue()
@@ -22,7 +19,7 @@ class Base(object):
         raise NotImplementedError("Do not instantiate Actor class directly, use the flavours.")
 
     def stop(self):
-        logging.debug("[%s] Received stop signal.", self.uuid + "::" + ','.join(self.address))
+        logging.debug("[%s] Received stop signal.", self.uuid)
         self.running = False
 
     def _loop(self):
@@ -32,8 +29,7 @@ class Base(object):
                 continue
             args, kwargs = self.inbox.get()
             self.receive(*args, **kwargs)
-        self.stop()
-        logging.debug("[%s] Shutting down.", self.uuid + "::" + ','.join(self.address))
+        logging.debug("[%s] Shutting down.", self.uuid)
 
     def tell(self, *args, **kwargs):
         self.inbox.put((args, kwargs))
@@ -50,9 +46,6 @@ class Base(object):
 
 class Threaded(Base):
 
-    address = [
-        __name__ + "/ThreadedActor"
-    ]
 
     def start(self):
         threading.Thread(target=self._loop).start()

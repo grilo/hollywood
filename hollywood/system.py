@@ -32,7 +32,12 @@ class System(object):
 
     @classmethod
     def register(cls, actor):
-        for addr in actor.address:
+        address_list = []
+        if hasattr(actor, 'address'):
+            address_list = actor.address
+        else:
+            address_list.append(actor.__module__ + '/' + actor.__name__)
+        for addr in address_list:
             normalized_addr = addr.replace('.', '/')
             logging.info("Registering: %s", normalized_addr)
             cls.address_actor[normalized_addr] = actor

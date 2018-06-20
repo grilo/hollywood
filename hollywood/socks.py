@@ -9,10 +9,6 @@ import hollywood.actor
 
 class Server(hollywood.actor.Threaded):
 
-    address = [
-        __name__ + '/Server'
-    ]
-
     def receive(self, address, port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -24,10 +20,6 @@ class Server(hollywood.actor.Threaded):
 
 
 class Listener(hollywood.actor.Threaded):
-
-    address = [
-        __name__ + '/Listener'
-    ]
 
     def receive(self, server_socket):
         try:
