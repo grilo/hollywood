@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import time
 import threading
 import logging
 
@@ -90,6 +91,11 @@ class System(object):
                 cls.stop(address)
             logging.info("Halting completed.")
             logging.info("If process doesn't exit, threads are still blocked (kill?).")
+
+        while threading.active_count() > 1:
+            for thread in threading.enumerate():
+                logging.warning("Waiting for: %s", thread.name)
+            time.sleep(2)
 
     @classmethod
     def status(cls):

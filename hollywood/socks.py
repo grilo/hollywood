@@ -15,7 +15,7 @@ class Server(hollywood.actor.Threaded):
         # Disable nagle algorithm, makes us look better in benchmarks
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         sock.bind((address, port))
-        sock.listen(5)
+        sock.listen(10)
         return sock
 
 
@@ -23,10 +23,9 @@ class Listener(hollywood.actor.Threaded):
 
     def receive(self, server_socket):
         try:
-            server_socket.settimeout(2)
+            server_socket.settimeout(0)
             conn, addr = server_socket.accept()
             logging.debug("Received connection: %s %s", conn, addr)
             return conn, addr
         except socket.error: # Timeout
-            pass
-        return None, None
+            return None, None

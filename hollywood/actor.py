@@ -61,7 +61,7 @@ class Base(object):
             if self.inbox.empty():
                 time.sleep(0.0001)
                 continue
-            args, kwargs = self.inbox.get()
+            args, kwargs = self.inbox.get_nowait()
             self.receive(*args, **kwargs)
         logging.debug("[%s] Shutting down.", self.uuid)
 
@@ -88,7 +88,9 @@ class Threaded(Base):
 
 
     def start(self):
-        threading.Thread(target=self._loop).start()
+        name = __name__ + '/' + self.__class__.__name__
+        threading.Thread(name=name.replace('.', '/'),
+                         target=self._loop).start()
 
     def ask(self, *args, **kwargs):
         """Return a future with the result.
@@ -101,7 +103,11 @@ class Threaded(Base):
         to implement that.
         """
         queue = Queue.Queue()
-        threading.Thread(target=self.__future, args=(queue, args), kwargs=kwargs).start()
+        name = __name__ + '/' + self.__class__.__name__
+        threading.Thread(name=name.replace('.', '/') + '/Future',
+                         target=self.__future,
+                         args=(queue, args),
+                         kwargs=kwargs).start()
         return queue
 
     def __future(self, queue, args, **kwargs):

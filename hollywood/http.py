@@ -226,4 +226,4 @@ class Server(hollywood.actor.Threaded):
             request = request_handler.ask(conn, addr).get(timeout=2)
             if request:
                 response_handler.tell(request)
-        return "Done serving!"
+        logging.warning("Done serving!")
