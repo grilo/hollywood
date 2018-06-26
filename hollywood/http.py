@@ -193,10 +193,10 @@ class ResponseHandler(hollywood.actor.Threaded):
 class Server(hollywood.actor.Threaded):
     """Usage:
 
-    import actor
+    import hollywood
     import http # Need to import all direct dependencies
-    actor.System.new('http/Server')
-    actor.System.tell('http/Server', port=5000)
+    hollywood.System.new('http/Server')
+    hollywood.System.tell('http/Server', port=5000)
 
     while True:
         logging.info("Actors alive!")
@@ -218,6 +218,8 @@ class Server(hollywood.actor.Threaded):
         sock = sock_server.ask(address, port).get(timeout=2)
         sock_server.stop()
 
+        logging.warning("Starting HTTP server in port: %i (%s)", port, address)
+
         while self.running:
             conn, addr = sock_listener.ask(sock).get()
             if not conn:
@@ -226,4 +228,4 @@ class Server(hollywood.actor.Threaded):
             request = request_handler.ask(conn, addr).get(timeout=2)
             if request:
                 response_handler.tell(request)
-        logging.warning("Done serving!")
+        logging.warning("HTTP Server actor shutting down.")

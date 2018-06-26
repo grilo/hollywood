@@ -85,17 +85,20 @@ class System(object):
 
     @classmethod
     def halt(cls):
+        logging.warning("Halting all actors.")
         with cls.actor_lock:
-            logging.warning("Halting all actors.")
             for address in cls.processes.keys():
                 cls.stop(address)
-            logging.info("Halting completed.")
             logging.info("If process doesn't exit, threads are still blocked (kill?).")
 
+        i = 0
         while threading.active_count() > 1:
-            for thread in threading.enumerate():
-                logging.warning("Waiting for: %s", thread.name)
-            time.sleep(2)
+            i += 1
+            if i % 5 == 0:
+                for thread in threading.enumerate():
+                    logging.warning("Waiting for thread to exit: %s", thread.name)
+            time.sleep(1)
+        logging.warning("Halting completed.")
 
     @classmethod
     def status(cls):
