@@ -25,6 +25,8 @@ import threading
 import logging
 import uuid
 
+import hollywood.exceptions
+
 
 class Base(object):
     """Abstract-y class that implements a synchronous actor.
@@ -48,6 +50,8 @@ class Base(object):
         self.inbox = Queue.Queue()
         self.running = True
         self.uuid = str(uuid.uuid4()).split('-')[0]
+        name = __name__ + '/' + self.__class__.__name__
+        self.name = name.replace('.', '/')
 
     def start(self):
         raise NotImplementedError("Do not instantiate Actor class directly, use the flavours.")
@@ -62,8 +66,12 @@ class Base(object):
                 time.sleep(0.0001)
                 continue
             args, kwargs = self.inbox.get_nowait()
-            self.receive(*args, **kwargs)
-        logging.debug("[%s] Shutting down.", self.uuid)
+            try:
+                self.receive(*args, **kwargs)
+            except Exception as error:
+                logging.error(error, exc_info=True)
+                raise hollywood.exceptions.ActorRuntimeError
+        logging.debug("[%s:%s] Shutting down.", self.name, self.uuid)
 
     def tell(self, *args, **kwargs):
         self.inbox.put((args, kwargs))
@@ -88,8 +96,7 @@ class Threaded(Base):
 
 
     def start(self):
-        name = __name__ + '/' + self.__class__.__name__
-        threading.Thread(name=name.replace('.', '/'),
+        threading.Thread(name=self.name,
                          target=self._loop).start()
 
     def ask(self, *args, **kwargs):
@@ -103,8 +110,7 @@ class Threaded(Base):
         to implement that.
         """
         queue = Queue.Queue()
-        name = __name__ + '/' + self.__class__.__name__
-        threading.Thread(name=name.replace('.', '/') + '/Future',
+        threading.Thread(name=self.name + '/Future',
                          target=self.__future,
                          args=(queue, args),
                          kwargs=kwargs).start()
@@ -119,4 +125,10 @@ class Threaded(Base):
             not done, check the Queue.Queue for other non-blocking options).
         """
         logging.debug("Future::%s", __name__ + "::" + self.__class__.__name__)
-        queue.put(self.receive(*args, **kwargs))
+        try:
+            result = self.receive(*args, **kwargs)
+            queue.put(result)
+        except Exception as error:
+            logging.error(error, exc_info=True)
+            self.stop()
+            raise hollywood.exceptions.ActorRuntimeError

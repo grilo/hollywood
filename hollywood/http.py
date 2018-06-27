@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import time
 import logging
 import datetime
 import email
@@ -27,9 +26,10 @@ class Request(object):
             }
     """
 
-    def __init__(self, socket, raw_string):
+    def __init__(self, socket, address, raw_string):
 
         self.socket = socket
+        self.address = address
         raw_string = raw_string.strip()
         if not raw_string:
             logging.error("Empty request.")
@@ -46,7 +46,7 @@ class Request(object):
                 self.protocol = first_line[2]
 
             self.headers = email.message_from_string('\r\n'.join(lines[1:]))
-        except Exception as err:
+        except Exception:
             logging.error("Unable to parse request: [%s]", raw_string, exc_info=True)
             raise BadRequestError
 
@@ -108,6 +108,7 @@ class Response(object):
         self.last_modified = ''
         self.content_type = 'text/html'
         self._redirect = None
+        self._last_modified = None
 
     @property
     def date(self):
@@ -117,13 +118,13 @@ class Response(object):
         The supplied date must be in UTC.
 
         """
-        import datetime
-        dt = datetime.datetime.now()
-        weekday = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][dt.weekday()]
+        now = datetime.datetime.now()
+        weekday = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][now.weekday()]
         month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
-                 "Oct", "Nov", "Dec"][dt.month - 1]
-        return "%s, %02d %s %04d %02d:%02d:%02d GMT" % (weekday, dt.day, month,
-            dt.year, dt.hour, dt.minute, dt.second)
+                 "Oct", "Nov", "Dec"][now.month - 1]
+        return "%s, %02d %s %04d %02d:%02d:%02d GMT" % (weekday, now.day, month,
+                                                        now.year, now.hour,
+                                                        now.minute, now.second)
 
     @property
     def content_length(self):
@@ -172,7 +173,7 @@ class RequestHandler(hollywood.actor.Threaded):
         data = connection.recv(8192) # Should be enough for everybody
 
         try:
-            request = Request(connection, data)
+            request = Request(connection, address, data)
             return request
         except BadRequestError:
             response = Response(400)

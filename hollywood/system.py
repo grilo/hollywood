@@ -4,14 +4,16 @@ import time
 import threading
 import logging
 
-import hollywood.actor
-
 # Clean shutdown with ctrl-c
 import sys
 import signal
-def signal_handler(signal, frame):
-        System.halt()
-        sys.exit(1)
+
+import hollywood.actor
+import hollywood.exceptions
+
+def signal_handler(sig, frame):
+    System.halt()
+    sys.exit(1)
 signal.signal(signal.SIGINT, signal_handler)
 
 
@@ -23,7 +25,7 @@ class System(object):
 
     @classmethod
     def init(cls):
-        subclasses = set()
+        logging.warning("Initializing actor system.")
         work = [hollywood.actor.Base]
         while work:
             parent = work.pop()
@@ -33,24 +35,34 @@ class System(object):
 
     @classmethod
     def register(cls, actor):
-        address_list = []
+        address_list = [actor.__module__ + '/' + actor.__name__]
         if hasattr(actor, 'address'):
-            address_list = actor.address
-        else:
-            address_list.append(actor.__module__ + '/' + actor.__name__)
+            address_list += actor.address
+
         for addr in address_list:
             normalized_addr = addr.replace('.', '/')
             logging.info("Registering: %s", normalized_addr)
             cls.address_actor[normalized_addr] = actor
 
     @classmethod
-    def tell(cls, address, *args, **kwargs):
-        cls.ask(address, *args, **kwargs)
+    def new(cls, address):
+        with cls.actor_lock:
+            if address not in cls.processes:
+                cls.processes[address] = {}
+            logging.debug("Spawning new actor: %s", address)
+            actor = cls.address_actor[address]()
+            cls.processes[address][actor.uuid] = actor
+            actor.start()
+        return ActorRef(address)
 
     @classmethod
     def ask(cls, address, *args, **kwargs):
-        if not cls.processes[address]:
+        if not address in cls.address_actor:
+            raise hollywood.exceptions.ActorNotRegisteredError(address)
+
+        if not address in cls.processes:
             cls.new(address)
+
         # This is very basic: get the first actor able to handle
         # this request and ask him to return a promise. Ideally
         # we would have a Router actor handling these requests
@@ -58,18 +70,17 @@ class System(object):
         # more consideration. Example:
         # - Round robin scheduling
         # - Spawning new actors if the current ones are taking too long
-        for uuid, actor in cls.processes[address].items():
-            return actor.ask(*args, **kwargs)
+        for actor in cls.processes[address].values():
+            try:
+                return actor.ask(*args, **kwargs)
+            except hollywood.exceptions.ActorRuntimeError:
+                # TODO Notify a supervisor to restart the actor and
+                # resend the message.
+                return None
 
     @classmethod
-    def new(cls, address):
-        with cls.actor_lock:
-            if address not in cls.processes:
-                cls.processes[address] = {}
-            actor = cls.address_actor[address]()
-            cls.processes[address][actor.uuid] = actor
-            actor.start()
-        return ActorRef(address)
+    def tell(cls, address, *args, **kwargs):
+        cls.ask(address, *args, **kwargs)
 
     @classmethod
     def stop(cls, address):
@@ -87,28 +98,24 @@ class System(object):
     def halt(cls):
         logging.warning("Halting all actors.")
         with cls.actor_lock:
-            for address in cls.processes.keys():
+            for address in cls.processes:
                 cls.stop(address)
-            logging.info("If process doesn't exit, threads are still blocked (kill?).")
 
-        i = 0
         while threading.active_count() > 1:
-            i += 1
-            if i % 5 == 0:
-                for thread in threading.enumerate():
-                    logging.warning("Waiting for thread to exit: %s", thread.name)
+            for thread in threading.enumerate():
+                logging.warning("Waiting for thread to exit: %s", thread.name)
             time.sleep(1)
         logging.warning("Halting completed.")
+
 
     @classmethod
     def status(cls):
         with cls.actor_lock:
             addresses = 0
             processes = 0
-            for addr in cls.processes.keys():
+            for actors in cls.processes.values():
                 addresses += 1
-                for actor in cls.processes[addr]:
-                    processes += 1
+                processes += len(actors)
         return {
             'addresses': addresses,
             'processes': processes,
