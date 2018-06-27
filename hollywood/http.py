@@ -210,7 +210,7 @@ class Server(hollywood.actor.Threaded):
     def receive(self,
                 address='0.0.0.0',
                 port=5000,
-                certfile=None
+                certfile=None,
                 response_handler='hollywood/http/ResponseHandler'):
 
         sock_server = hollywood.System.new('hollywood/socks/Server')
