@@ -56,12 +56,12 @@ class System(object):
         return ActorRef(address)
 
     @classmethod
-    def ask(cls, address, *args, **kwargs):
-        if not address in cls.address_actor:
-            raise hollywood.exceptions.ActorNotRegisteredError(address)
+    def ask(cls, actor_address, *args, **kwargs):
+        if not actor_address in cls.address_actor:
+            raise hollywood.exceptions.ActorNotRegisteredError(actor_address)
 
-        if not address in cls.processes:
-            cls.new(address)
+        if not actor_address in cls.processes:
+            cls.new(actor_address)
 
         # This is very basic: get the first actor able to handle
         # this request and ask him to return a promise. Ideally
@@ -70,7 +70,7 @@ class System(object):
         # more consideration. Example:
         # - Round robin scheduling
         # - Spawning new actors if the current ones are taking too long
-        for actor in cls.processes[address].values():
+        for actor in cls.processes[actor_address].values():
             try:
                 return actor.ask(*args, **kwargs)
             except hollywood.exceptions.ActorRuntimeError:
@@ -79,8 +79,8 @@ class System(object):
                 return None
 
     @classmethod
-    def tell(cls, address, *args, **kwargs):
-        cls.ask(address, *args, **kwargs)
+    def tell(cls, actor_address, *args, **kwargs):
+        cls.ask(actor_address, *args, **kwargs)
 
     @classmethod
     def stop(cls, address):
