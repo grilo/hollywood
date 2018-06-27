@@ -3,6 +3,7 @@
 import logging
 import datetime
 import email
+import ssl
 
 import hollywood.actor
 import hollywood.socks
@@ -209,6 +210,7 @@ class Server(hollywood.actor.Threaded):
     def receive(self,
                 address='0.0.0.0',
                 port=5000,
+                certfile=None
                 response_handler='hollywood/http/ResponseHandler'):
 
         sock_server = hollywood.System.new('hollywood/socks/Server')
@@ -217,6 +219,8 @@ class Server(hollywood.actor.Threaded):
         response_handler = hollywood.System.new(response_handler)
 
         sock = sock_server.ask(address, port).get(timeout=2)
+        if certfile:
+            sock = ssl.wrap_socket(sock, certfile=certfile, server_side=True)
         sock_server.stop()
 
         logging.warning("Starting HTTP server in port: %i (%s)", port, address)
