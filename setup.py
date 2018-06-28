@@ -26,5 +26,5 @@ setup(
         "Development Status :: 3 - Alpha",
         "License :: OSI Approved :: MIT License",
     ],
-    tests_require=['pytest-runner', pylint', 'pytest', 'pytest-cov', 'pytest-mock'],
+    tests_require=['pytest-runner', 'pylint', 'pytest', 'pytest-cov', 'pytest-mock'],
 )
