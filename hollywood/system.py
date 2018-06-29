@@ -78,9 +78,30 @@ class System(object):
                 # resend the message.
                 return None
 
+    # XXX DRY - whole chunk is duplicated
     @classmethod
     def tell(cls, actor_address, *args, **kwargs):
-        cls.ask(actor_address, *args, **kwargs)
+
+        if not actor_address in cls.address_actor:
+            raise hollywood.exceptions.ActorNotRegisteredError(actor_address)
+
+        if not actor_address in cls.processes:
+            cls.new(actor_address)
+
+        # This is very basic: get the first actor able to handle
+        # this request and ask him to return a promise. Ideally
+        # we would have a Router actor handling these requests
+        # and posting them to the correct inbox with a little
+        # more consideration. Example:
+        # - Round robin scheduling
+        # - Spawning new actors if the current ones are taking too long
+        for actor in cls.processes[actor_address].values():
+            try:
+                actor.tell(*args, **kwargs)
+            except hollywood.exceptions.ActorRuntimeError:
+                # TODO Notify a supervisor to restart the actor and
+                # resend the message.
+                pass
 
     @classmethod
     def stop(cls, address):

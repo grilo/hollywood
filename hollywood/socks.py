@@ -22,9 +22,10 @@ class Listener(hollywood.actor.Threaded):
 
     def receive(self, server_socket):
         try:
-            server_socket.settimeout(0)
+            server_socket.settimeout(2)
             conn, addr = server_socket.accept()
             logging.debug("Received connection: %s %s", conn, addr)
             return conn, addr
         except socket.error: # Timeout
+            logging.debug("No connections received, recycling.")
             return None, None

@@ -65,6 +65,7 @@ class Base(object):
             if self.inbox.empty():
                 time.sleep(0.0001)
                 continue
+            logging.debug("[%s] Inbox size: %i", self.name, self.inbox.qsize())
             args, kwargs = self.inbox.get_nowait()
             try:
                 self.receive(*args, **kwargs)
