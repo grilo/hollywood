@@ -20,7 +20,7 @@ class Request(object):
         Attributes:
             method: GET, POST
             path: /, /metrics
-            protocol: HTTP/1.1
+            protocol: HTTP/1.0
             headers: {
                 host: localhost:5000
                 connection: keep-alive
@@ -33,7 +33,7 @@ class Request(object):
         self.address = address
         raw_string = raw_string.strip()
         if not raw_string:
-            logging.error("Empty request.")
+            logging.error("Empty request from: %s", address)
             raise BadRequestError
 
         try:
@@ -104,7 +104,7 @@ class Response(object):
     def __init__(self, code=200):
         self.content = ''
         self.code = code
-        self.protocol = 'HTTP/1.1'
+        self.protocol = 'HTTP/1.0'
         self.server = "Promenade/0.1 (noarch)"
         self.last_modified = ''
         self.content_type = 'text/html'
@@ -114,7 +114,7 @@ class Response(object):
     @property
     def date(self):
         """Return a string representation of a date according to RFC 1123
-        (HTTP/1.1).
+        (HTTP/1.0).
 
         The supplied date must be in UTC.
 
@@ -211,26 +211,26 @@ class Server(hollywood.actor.Threaded):
                 address='0.0.0.0',
                 port=5000,
                 certfile=None,
-                response_handler='hollywood/http/ResponseHandler'):
+                response_handler=ResponseHandler):
 
-        sock_server = hollywood.System.new('hollywood/socks/Server')
-        sock_listener = hollywood.System.new('hollywood/socks/Listener')
-        request_handler = hollywood.System.new('hollywood/http/RequestHandler')
+        sock_server = hollywood.System.new(hollywood.socks.Server)
+        sock_listener = hollywood.System.new(hollywood.socks.Listener)
+        request_handler = hollywood.System.new(hollywood.http.RequestHandler)
         response_handler = hollywood.System.new(response_handler)
 
-        sock = sock_server.ask(address, port).get(timeout=2)
+        sock = sock_server.ask(address, port).get()
         if certfile:
             sock = ssl.wrap_socket(sock, certfile=certfile, server_side=True)
         sock_server.stop()
 
         logging.warning("Starting HTTP server in port: %i (%s)", port, address)
 
-        while self.running:
+        while self.is_alive:
             conn, addr = sock_listener.ask(sock).get()
             if not conn:
                 continue
 
-            request = request_handler.ask(conn, addr).get(timeout=2)
+            request = request_handler.ask(conn, addr).get()
             if request:
                 response_handler.tell(request)
         logging.warning("HTTP Server actor shutting down.")

@@ -23,9 +23,47 @@ import time
 import Queue
 import threading
 import logging
-import uuid
 
+import hollywood.future
 import hollywood.exceptions
+
+
+class Address(object):
+    """
+        This class is just syntatic sugar.
+
+        Instead of going like:
+            hollywood.actor.System.new('http/Handler')
+            hollywood.actor.System.tell('http/Handler', message)
+            hollywood.actor.System.ask('http/Handler', message)
+            hollywood.actor.System.stop('http/Handler')
+
+        You can:
+            addr = hollywood.actor.System.new('http/Handler')
+            addr.tell(message)
+            addr.ask(message)
+			addr.stop()
+
+        Underneath, the Address will call the actor system the same
+        old way, providing referential transparency.
+    """
+
+    def __init__(self, actor):
+        name = '/'.join([actor.__module__, actor.__class__.__name__])
+        self.name = name.replace('.', '/')
+        self.actor = actor
+
+    def ask(self, *args, **kwargs):
+        return self.actor.ask(*args, **kwargs)
+
+    def tell(self, *args, **kwargs):
+        return self.actor.tell(*args, **kwargs)
+
+    def stop(self):
+        return self.actor.stop()
+
+    def __repr__(self):
+        return self.name
 
 
 class Base(object):
@@ -47,41 +85,34 @@ class Base(object):
     """
 
     def __init__(self):
+        self.address = Address(self)
         self.inbox = Queue.Queue()
-        self.running = True
-        self.uuid = str(uuid.uuid4()).split('-')[0]
-        name = __name__ + '/' + self.__class__.__name__
-        self.name = name.replace('.', '/')
-
-    def start(self):
-        raise NotImplementedError("Do not instantiate Actor class directly, use the flavours.")
+        self.is_alive = True
 
     def stop(self):
-        logging.debug("[%s] Received stop signal.", self.uuid)
-        self.running = False
+        logging.debug("[%s] Received stop signal.", self.address)
+        self.is_alive = False
 
     def _loop(self):
-        while self.running:
+        while self.is_alive:
             if self.inbox.empty():
-                time.sleep(0.0001)
+                time.sleep(0.01)
                 continue
-            logging.debug("[%s] Inbox size: %i", self.name, self.inbox.qsize())
+            logging.debug("[%s] Inbox size: %i", self.address, self.inbox.qsize())
             args, kwargs = self.inbox.get_nowait()
             try:
                 self.receive(*args, **kwargs)
             except Exception as error:
                 logging.error(error, exc_info=True)
                 raise hollywood.exceptions.ActorRuntimeError
-        logging.debug("[%s:%s] Shutting down.", self.name, self.uuid)
+        logging.debug("[%s] Shutting down.", self.address)
 
     def tell(self, *args, **kwargs):
         self.inbox.put((args, kwargs))
         return self
 
     def ask(self, *args, **kwargs):
-        queue = Queue.Queue()
-        queue.put(self.receive(*args, **kwargs))
-        return queue
+        return hollywood.future.Threaded(self.receive, *args, **kwargs)
 
     def receive(self, *args, **kwargs):
         raise NotImplementedError("'receive' method must be overriden.")
@@ -89,47 +120,12 @@ class Base(object):
 
 class Threaded(Base):
     """
+    self.is_alive = True
         Spawn the event loop in a new thread.
 
         If 'ask'ed, computes the result in a separate thread
         and returns a future.
     """
-
-
-    def start(self):
-        threading.Thread(name=self.name,
-                         target=self._loop).start()
-
-    def ask(self, *args, **kwargs):
-        """Return a future with the result.
-
-        This is specific implementation skips the actor's inbox and directly
-        runs the computation in a separate thread.
-
-        In regular circumstances, the 'ask' would be put in the inbox and
-        processed with no higher priority, but I didn't find an elegant way
-        to implement that.
-        """
-        queue = Queue.Queue()
-        threading.Thread(name=self.name + '/Future',
-                         target=self.__future,
-                         args=(queue, args),
-                         kwargs=kwargs).start()
-        return queue
-
-    def __future(self, queue, args, **kwargs):
-        """
-            Wraps the 'receive' method by capturing its output and returning
-            it in the form of a Queue.Queue.
-
-            You can then do 'obj.get()' to obtain the result (blocks if
-            not done, check the Queue.Queue for other non-blocking options).
-        """
-        logging.debug("Future::%s", __name__ + "::" + self.__class__.__name__)
-        try:
-            result = self.receive(*args, **kwargs)
-            queue.put(result)
-        except Exception as error:
-            logging.error(error, exc_info=True)
-            self.stop()
-            raise hollywood.exceptions.ActorRuntimeError
+    def __init__(self):
+        super(Threaded, self).__init__()
+        threading.Thread(name=self.address, target=self._loop).start()
