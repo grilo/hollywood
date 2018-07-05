@@ -6,7 +6,7 @@ import email
 import ssl
 
 import hollywood.actor
-import hollywood.socks
+import hollywood.net.socks
 
 
 class BadRequestError(Exception):
@@ -196,9 +196,9 @@ class Server(hollywood.actor.Threaded):
     """Usage:
 
     import hollywood
-    import http # Need to import all direct dependencies
-    hollywood.System.new('http/Server')
-    hollywood.System.tell('http/Server', port=5000)
+    import hollywood.net.http # Need to import all direct dependencies
+    hollywood.System.new(hollywood.net.http.Server)
+    hollywood.System.tell(port=5000)
 
     while True:
         logging.info("Actors alive!")
@@ -207,16 +207,20 @@ class Server(hollywood.actor.Threaded):
     The loop isn't actually necessary, keeps the main thread busy.
     """
 
+    def __init__(self, response_handler=None):
+        super(Server, self).__init__()
+        if response_handler is None:
+            response_handler = hollywood.System.new(response_handler)
+        self.response_handler = response_handler
+
     def receive(self,
                 address='0.0.0.0',
                 port=5000,
-                certfile=None,
-                response_handler=ResponseHandler):
+                certfile=None):
 
-        sock_server = hollywood.System.new(hollywood.socks.Server)
-        sock_listener = hollywood.System.new(hollywood.socks.Listener)
-        request_handler = hollywood.System.new(hollywood.http.RequestHandler)
-        response_handler = hollywood.System.new(response_handler)
+        sock_server = hollywood.System.new(hollywood.net.socks.Server)
+        sock_listener = hollywood.System.new(hollywood.net.socks.Listener)
+        request_handler = hollywood.System.new(hollywood.net.http.RequestHandler)
 
         sock = sock_server.ask(address, port).get()
         if certfile:
@@ -232,5 +236,5 @@ class Server(hollywood.actor.Threaded):
 
             request = request_handler.ask(conn, addr).get()
             if request:
-                response_handler.tell(request)
+                self.response_handler.tell(request)
         logging.warning("HTTP Server actor shutting down.")

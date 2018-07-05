@@ -20,25 +20,23 @@ To build your own actor which replies to http requests:
 import logging
 import time
 
-import hollywood.http
+import hollywood.net.http
 
 
 class MyResponseHandler(hollywood.actor.Threaded):
 
     def receive(self, request):
-        response = hollywood.http.Response()
+        response = hollywood.net.http.Response()
         response.content_type = 'text/plain'
         response.content = "<html><h1>Hello world!</h1></html>"
         request.send(response)
         return response
 
-hollywood.System.init()
-http_server = hollywood.System.new('hollywood/http/Server')
-http_server.tell(port=5000, response_handler='MyResponseHandler')
+http_server = hollywood.System.new(hollywood.net.http.Server, MyResponseHandler)
+http_server.tell(port=5000)
 
 while True:
-    status = hollywood.System.status()
-    logging.info("Actors alive: %i", status['processes'])
+    logging.info("Actors alive: %i", hollywood.System.status() )
     time.sleep(2)
 ```
 
@@ -52,9 +50,9 @@ If you want more actors of a specific type, simply invoke the `.new` method
 multiple times. Example:
 
 ```python
-hollywood.System.new('hollywood/http/Server')
-hollywood.System.new('hollywood/http/Server')
-hollywood.System.new('hollywood/http/Server')
+hollywood.System.new(hollywood.net.http.Server')
+hollywood.System.new(hollywood.net.http.Server')
+hollywood.System.new(hollywood.net.http.Server')
 ```
 
 You could implement some sort of "AutoScaler" actor which spawns new actors

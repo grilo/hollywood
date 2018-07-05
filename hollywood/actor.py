@@ -33,13 +33,13 @@ class Address(object):
         This class is just syntatic sugar.
 
         Instead of going like:
-            hollywood.actor.System.new('http/Handler')
-            hollywood.actor.System.tell('http/Handler', message)
-            hollywood.actor.System.ask('http/Handler', message)
-            hollywood.actor.System.stop('http/Handler')
+            hollywood.actor.System.new(hollywood.net.http.Handler')
+            hollywood.actor.System.tell(hollywood.net.http.Handler, message)
+            hollywood.actor.System.ask(hollywood.net.http.Handler, message)
+            hollywood.actor.System.stop(hollywood.net.http.Handler)
 
         You can:
-            addr = hollywood.actor.System.new('http/Handler')
+            addr = hollywood.actor.System.new(hollywood.net.http.Handler)
             addr.tell(message)
             addr.ask(message)
 			addr.stop()
