@@ -23,11 +23,11 @@ class R(hollywood.actor.Threaded):
         request.send(response)
         return response
 
-actor = hollywood.System.new(hollywood.net.http.Server, hollywood.System.new(R))
+actor = hollywood.System.spawn(hollywood.net.http.Server, hollywood.System.spawn(R))
 actor.tell()
 
+print "SIGKILL (ctrl-C) stops."
 while True:
     time.sleep(1)
-    print "sleeping..."
 
 hollywood.System.halt()

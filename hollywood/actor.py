@@ -33,13 +33,13 @@ class Address(object):
         This class is just syntatic sugar.
 
         Instead of going like:
-            hollywood.actor.System.new(hollywood.net.http.Handler')
+            hollywood.actor.System.spawn(hollywood.net.http.Handler')
             hollywood.actor.System.tell(hollywood.net.http.Handler, message)
             hollywood.actor.System.ask(hollywood.net.http.Handler, message)
             hollywood.actor.System.stop(hollywood.net.http.Handler)
 
         You can:
-            addr = hollywood.actor.System.new(hollywood.net.http.Handler)
+            addr = hollywood.actor.System.spawn(hollywood.net.http.Handler)
             addr.tell(message)
             addr.ask(message)
 			addr.stop()
@@ -107,12 +107,34 @@ class Base(object):
                 raise hollywood.exceptions.ActorRuntimeError
         logging.debug("[%s] Shutting down.", self.address)
 
+    def _loop(self):
+        while self.is_alive:
+            if self.inbox.empty():
+                continue
+            logging.debug("[%s] Inbox size: %i", self.address.name, self.inbox.qsize())
+            future = self.inbox.get()
+            args, kwargs = future.args, future.kwargs
+            logging.debug("[%s] Processing: %s %s", self.address.name, args, kwargs)
+            result = self._handle(*args, **kwargs)
+            future.put(result)
+        logging.info("[%s] Shutting down.", self.address.name)
+
+    def _handle(self, *args, **kwargs):
+        try:
+            return self.receive(*args, **kwargs)
+        except Exception as error:
+            logging.error(error, exc_info=True)
+            self.stop()
+            raise hollywood.exceptions.ActorRuntimeError
+
     def tell(self, *args, **kwargs):
-        self.inbox.put((args, kwargs))
-        return self
+        return self.ask(*args, **kwargs)
 
     def ask(self, *args, **kwargs):
-        return hollywood.future.Threaded(self.receive, *args, **kwargs)
+        logging.debug("[%s] Queueing message: %s %s", self.address.name, *args, **kwargs)
+        future = hollywood.future.Base(*args, **kwargs)
+        self.inbox.put(future)
+        return future
 
     def receive(self, *args, **kwargs):
         raise NotImplementedError("'receive' method must be overriden.")

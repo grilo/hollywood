@@ -152,7 +152,7 @@ class Response(object):
 
     def to_string(self):
         header = ' '.join([self.protocol, str(self.code), Response.codes[self.code]])
-        logging.info("RESPONSE: %s", header)
+        logging.debug("RESPONSE: %s", header)
         out = [
             header,
             'Date: ' + self.date,
@@ -197,7 +197,7 @@ class Server(hollywood.actor.Threaded):
 
     import hollywood
     import hollywood.net.http # Need to import all direct dependencies
-    hollywood.System.new(hollywood.net.http.Server)
+    hollywood.System.spawn(hollywood.net.http.Server)
     hollywood.System.tell(port=5000)
 
     while True:
@@ -210,7 +210,7 @@ class Server(hollywood.actor.Threaded):
     def __init__(self, response_handler=None):
         super(Server, self).__init__()
         if response_handler is None:
-            response_handler = hollywood.System.new(response_handler)
+            response_handler = hollywood.System.spawn(response_handler)
         self.response_handler = response_handler
 
     def receive(self,
@@ -218,9 +218,9 @@ class Server(hollywood.actor.Threaded):
                 port=5000,
                 certfile=None):
 
-        sock_server = hollywood.System.new(hollywood.net.socks.Server)
-        sock_listener = hollywood.System.new(hollywood.net.socks.Listener)
-        request_handler = hollywood.System.new(hollywood.net.http.RequestHandler)
+        sock_server = hollywood.System.spawn(hollywood.net.socks.Server)
+        sock_listener = hollywood.System.spawn(hollywood.net.socks.Listener)
+        request_handler = hollywood.System.spawn(hollywood.net.http.RequestHandler)
 
         sock = sock_server.ask(address, port).get()
         if certfile:

@@ -24,7 +24,7 @@ class System(object):
     actor_lock = threading.RLock()
 
     @classmethod
-    def new(cls, actor_class, *args, **kwargs):
+    def spawn(cls, actor_class, *args, **kwargs):
         if actor_class in cls.addresses:
             return cls.address[actor_class]
         actor = actor_class(*args, **kwargs)
@@ -45,7 +45,7 @@ class System(object):
 
         while threading.active_count() > 1:
             for thread in threading.enumerate():
-                logging.warning("Waiting for thread to exit: %s", thread.name)
+                logging.warning("Actor blocking termination: %s", thread.name)
             time.sleep(1)
         logging.warning("Shutdown complete.")
 
